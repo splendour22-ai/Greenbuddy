@@ -1,0 +1,306 @@
+{
+  "entities": {
+    "FarmProfile": {
+      "title": "FarmProfile",
+      "description": "Authenticated farmer profile and onboarding state for GreenHarvest Buddy.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the farm owner."
+        },
+        "ownerName": {
+          "type": "string",
+          "description": "Farmer's preferred display name."
+        },
+        "farmName": {
+          "type": "string",
+          "description": "Name of the farm business."
+        },
+        "currencySymbol": {
+          "type": "string",
+          "description": "Preferred currency symbol or code (e.g. ₦, $, GHS)."
+        },
+        "onboardingCompleted": {
+          "type": "boolean",
+          "description": "Whether initial conversational onboarding has been confirmed."
+        },
+        "onboardingStep": {
+          "type": "integer",
+          "description": "Current onboarding interview step count."
+        },
+        "dailyGoalNote": {
+          "type": "string",
+          "description": "Optional summary of current farm goals."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp (FieldValue.serverTimestamp()) on creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp (FieldValue.serverTimestamp()) on update."
+        }
+      },
+      "required": [
+        "userId",
+        "ownerName",
+        "farmName",
+        "currencySymbol",
+        "onboardingCompleted",
+        "onboardingStep",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "FarmActivity": {
+      "title": "FarmActivity",
+      "description": "Recorded daily farm business event (sale, harvest, expense, labor, consultation, or custom type).",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the owner."
+        },
+        "recordType": {
+          "type": "string",
+          "enum": ["SALE", "HARVEST", "EXPENSE", "LABOR", "CONSULTATION", "CUSTOM"]
+        },
+        "customTypeName": {
+          "type": "string",
+          "description": "Optional custom record section name when recordType is CUSTOM."
+        },
+        "title": {
+          "type": "string",
+          "description": "Short human-readable summary of the activity."
+        },
+        "itemOrCrop": {
+          "type": "string",
+          "description": "Crop, livestock, input, or service name."
+        },
+        "plotOrUnit": {
+          "type": "string",
+          "description": "Plot, pond, pen, or farm location."
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Quantity recorded."
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of measurement (bags, kg, tons, crates, head)."
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "Total monetary value."
+        },
+        "amountPaid": {
+          "type": "number",
+          "description": "Amount paid so far."
+        },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["PAID", "PARTIAL", "UNPAID", "NA"]
+        },
+        "partyName": {
+          "type": "string",
+          "description": "Customer, supplier, worker, or client name."
+        },
+        "partyRole": {
+          "type": "string",
+          "enum": ["CUSTOMER", "SUPPLIER", "WORKER", "CLIENT", "NONE"]
+        },
+        "activityDate": {
+          "type": "string",
+          "description": "Activity date in YYYY-MM-DD format."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional extra notes."
+        },
+        "extraFields": {
+          "type": "array",
+          "description": "Bounded list of 'Key: Value' custom fields."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "recordType",
+        "title",
+        "itemOrCrop",
+        "plotOrUnit",
+        "quantity",
+        "unit",
+        "totalAmount",
+        "amountPaid",
+        "paymentStatus",
+        "partyName",
+        "partyRole",
+        "activityDate",
+        "notes",
+        "extraFields",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "LearnedMemory": {
+      "title": "LearnedMemory",
+      "description": "Business context learned by GreenHarvest Buddy (crops, plots, customers, suppliers, prices, workers, services, goals, reminders).",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "CROP_LIVESTOCK",
+            "PLOT_PEN",
+            "CUSTOMER",
+            "SUPPLIER",
+            "PRICE_UNIT",
+            "WORKER",
+            "SERVICE",
+            "GOAL",
+            "REMINDER"
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "typicalPrice": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "userId",
+        "category",
+        "label",
+        "detail",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "CustomRecordType": {
+      "title": "CustomRecordType",
+      "description": "User-approved custom farm record section (e.g. Vaccination).",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "fieldNames": {
+          "type": "array"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "userId",
+        "name",
+        "description",
+        "fieldNames",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Persisted conversation message between the farmer and GreenHarvest Buddy.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "sender": {
+          "type": "string",
+          "enum": ["USER", "BUDDY"]
+        },
+        "text": {
+          "type": "string"
+        },
+        "linkedActivityId": {
+          "type": "string"
+        },
+        "cardSummary": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "userId",
+        "sender",
+        "text",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/FarmProfile" },
+      "description": "Private farm profile and onboarding state for a single authenticated user."
+    },
+    "/users/{userId}/activities/{activityId}": {
+      "schema": { "$ref": "#/entities/FarmActivity" },
+      "description": "Daily farm activities (sales, harvests, expenses, labor, consultations, custom records)."
+    },
+    "/users/{userId}/learned_memories/{memoryId}": {
+      "schema": { "$ref": "#/entities/LearnedMemory" },
+      "description": "Learned business context items editable and deletable by the user."
+    },
+    "/users/{userId}/custom_record_types/{typeId}": {
+      "schema": { "$ref": "#/entities/CustomRecordType" },
+      "description": "User-approved custom record types discovered via conversation."
+    },
+    "/users/{userId}/chat_messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Persisted chat history with GreenHarvest Buddy."
+    }
+  }
+}

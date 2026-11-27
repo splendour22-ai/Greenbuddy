@@ -1,0 +1,6 @@
+{
+  "name": "GreenHarvest Buddy",
+  "description": "Friendly AI farm business partner for GreenHarvest Farms with voice input, conversational onboarding, activity tracking, and profit insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

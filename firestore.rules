@@ -1,0 +1,250 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: deny all reads and writes by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Primitive Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    // --- Validation Helpers ---
+    function isValidFarmProfile(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.ownerName is string && data.ownerName.size() >= 1 && data.ownerName.size() <= 80 &&
+             data.farmName is string && data.farmName.size() >= 1 && data.farmName.size() <= 100 &&
+             data.currencySymbol is string && data.currencySymbol.size() >= 1 && data.currencySymbol.size() <= 10 &&
+             data.onboardingCompleted is bool &&
+             data.onboardingStep is int && data.onboardingStep >= 0 && data.onboardingStep <= 20 &&
+             (!('dailyGoalNote' in data) || (data.dailyGoalNote is string && data.dailyGoalNote.size() <= 300)) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidFarmActivity(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.recordType in ['SALE', 'HARVEST', 'EXPENSE', 'LABOR', 'CONSULTATION', 'CUSTOM'] &&
+             (!('customTypeName' in data) || (data.customTypeName is string && data.customTypeName.size() <= 60)) &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 140 &&
+             data.itemOrCrop is string && data.itemOrCrop.size() <= 100 &&
+             data.plotOrUnit is string && data.plotOrUnit.size() <= 100 &&
+             data.quantity is number && data.quantity >= 0 &&
+             data.unit is string && data.unit.size() <= 40 &&
+             data.totalAmount is number && data.totalAmount >= 0 &&
+             data.amountPaid is number && data.amountPaid >= 0 &&
+             data.paymentStatus in ['PAID', 'PARTIAL', 'UNPAID', 'NA'] &&
+             data.partyName is string && data.partyName.size() <= 100 &&
+             data.partyRole in ['CUSTOMER', 'SUPPLIER', 'WORKER', 'CLIENT', 'NONE'] &&
+             data.activityDate is string && data.activityDate.size() >= 1 && data.activityDate.size() <= 32 &&
+             data.notes is string && data.notes.size() <= 500 &&
+             data.extraFields is list && data.extraFields.size() <= 15 &&
+             (data.extraFields.size() == 0 || data.extraFields[0] is string) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidLearnedMemory(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.category in [
+               'CROP_LIVESTOCK', 'PLOT_PEN', 'CUSTOMER', 'SUPPLIER',
+               'PRICE_UNIT', 'WORKER', 'SERVICE', 'GOAL', 'REMINDER'
+             ] &&
+             data.label is string && data.label.size() >= 1 && data.label.size() <= 100 &&
+             data.detail is string && data.detail.size() <= 300 &&
+             (!('unit' in data) || (data.unit is string && data.unit.size() <= 40)) &&
+             (!('typicalPrice' in data) || (data.typicalPrice is number && data.typicalPrice >= 0)) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidCustomRecordType(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+             data.description is string && data.description.size() <= 200 &&
+             data.fieldNames is list && data.fieldNames.size() <= 15 &&
+             (data.fieldNames.size() == 0 || data.fieldNames[0] is string) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidChatMessage(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.sender in ['USER', 'BUDDY'] &&
+             data.text is string && data.text.size() >= 1 && data.text.size() <= 4000 &&
+             (!('linkedActivityId' in data) || (data.linkedActivityId is string && data.linkedActivityId.size() <= 128)) &&
+             (!('cardSummary' in data) || (data.cardSummary is string && data.cardSummary.size() <= 300)) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    // --- User-Scoped Collections ---
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'ownerName', 'farmName', 'currencySymbol',
+                         'onboardingCompleted', 'onboardingStep', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'ownerName', 'farmName', 'currencySymbol',
+                         'onboardingCompleted', 'onboardingStep', 'dailyGoalNote',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidFarmProfile(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidFarmProfile(incoming(), userId) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'ownerName', 'farmName', 'currencySymbol',
+                         'onboardingCompleted', 'onboardingStep', 'dailyGoalNote', 'updatedAt'
+                       ]);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /activities/{activityId} {
+        allow get: if isOwner(userId) && isValidId(activityId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(activityId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'recordType', 'title', 'itemOrCrop', 'plotOrUnit',
+                           'quantity', 'unit', 'totalAmount', 'amountPaid', 'paymentStatus',
+                           'partyName', 'partyRole', 'activityDate', 'notes', 'extraFields',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'recordType', 'customTypeName', 'title', 'itemOrCrop',
+                           'plotOrUnit', 'quantity', 'unit', 'totalAmount', 'amountPaid',
+                           'paymentStatus', 'partyName', 'partyRole', 'activityDate',
+                           'notes', 'extraFields', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidFarmActivity(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(activityId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidFarmActivity(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'recordType', 'customTypeName', 'title', 'itemOrCrop', 'plotOrUnit',
+                           'quantity', 'unit', 'totalAmount', 'amountPaid', 'paymentStatus',
+                           'partyName', 'partyRole', 'activityDate', 'notes', 'extraFields',
+                           'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(activityId);
+      }
+
+      match /learned_memories/{memoryId} {
+        allow get: if isOwner(userId) && isValidId(memoryId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(memoryId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'category', 'label', 'detail', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'category', 'label', 'detail', 'unit', 'typicalPrice',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidLearnedMemory(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(memoryId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidLearnedMemory(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'category', 'label', 'detail', 'unit', 'typicalPrice', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(memoryId);
+      }
+
+      match /custom_record_types/{typeId} {
+        allow get: if isOwner(userId) && isValidId(typeId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(typeId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'name', 'description', 'fieldNames', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'name', 'description', 'fieldNames', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidCustomRecordType(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(typeId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidCustomRecordType(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'name', 'description', 'fieldNames', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(typeId);
+      }
+
+      match /chat_messages/{messageId} {
+        allow get: if isOwner(userId) && isValidId(messageId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(messageId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'sender', 'text', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'sender', 'text', 'linkedActivityId', 'cardSummary',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidChatMessage(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(messageId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidChatMessage(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'text', 'linkedActivityId', 'cardSummary', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(messageId);
+      }
+    }
+  }
+}
